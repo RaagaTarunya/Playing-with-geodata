@@ -1,34 +1,103 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>OSM Map with Leaflet</title>
+  <title>Map Drawing and Export</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <!-- Leaflet.draw CSS -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
   <style>
     #map {
-      height: 100vh;
+      height: 90vh;
       width: 100%;
+    }
+    #buttons {
+      text-align: center;
+      margin: 10px;
+    }
+    button {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
 
 <div id="map"></div>
+<div id="buttons">
+  <button onclick="downloadGeoJSON()">Download GeoJSON</button>
+  <button onclick="downloadKML()">Download KML</button>
+  <button onclick="downloadShapefile()">Download Shapefile</button>
+</div>
 
-<!-- Leaflet JS -->
+<!-- Libraries -->
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tmcw/tokml@0.4.0/tokml.min.js"></script>
+<script src="https://unpkg.com/shp-write@latest/shpwrite.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
 <script>
-  // Initialize the map and set its view
-  var map = L.map('map').setView([20.5937, 78.9629], 5); // Centered on India
+  // Initialize the map
+  var map = L.map('map').setView([20.5937, 78.9629], 5); // India
 
   // Add OpenStreetMap tiles
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19,
   }).addTo(map);
+
+  // Feature group to store drawings
+  var drawnItems = new L.FeatureGroup();
+  map.addLayer(drawnItems);
+
+  // Draw controls
+  var drawControl = new L.Control.Draw({
+    edit: {
+      featureGroup: drawnItems,
+      remove: true
+    },
+    draw: {
+      polygon: true,
+      polyline: true,
+      rectangle: true,
+      circle: false,
+      marker: true,
+      circlemarker: false
+    }
+  });
+  map.addControl(drawControl);
+
+  // When a feature is drawn
+  map.on(L.Draw.Event.CREATED, function (e) {
+    drawnItems.addLayer(e.layer);
+  });
+
+  // Export GeoJSON
+  function downloadGeoJSON() {
+    var data = drawnItems.toGeoJSON();
+    var convertedData = JSON.stringify(data);
+    var blob = new Blob([convertedData], { type: "application/json" });
+    saveAs(blob, "data.geojson");
+  }
+
+  // Export KML
+  function downloadKML() {
+    var geojson = drawnItems.toGeoJSON();
+    var kml = tokml(geojson);
+    var blob = new Blob([kml], { type: "application/vnd.google-earth.kml+xml" });
+    saveAs(blob, "data.kml");
+  }
+
+  // Export Shapefile (as ZIP)
+  function downloadShapefile() {
+    var geojson = drawnItems.toGeoJSON();
+    shpwrite.download(geojson, { file: "data" });
+  }
 </script>
 
 </body>
